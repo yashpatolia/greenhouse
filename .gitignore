@@ -19,9 +19,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Folders
-.vscode
-.specify
-.github
+.vscode/
+.specify/
+.github/
 
 # Environment variables
 .env

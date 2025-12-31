@@ -1,9 +1,9 @@
 import Cell from './Cell'
 
 function Grid({ unlockedCells, optimization, onCellToggle }) {
-  const { melons = [], pumpkins = [], mutationSpots = [] } = optimization || {}
+  const { mutationSpots = [] } = optimization || {}
   
-  // Create grid state
+  // Create grid state - works with any crop types
   const getCellState = (row, col) => {
     const isUnlocked = unlockedCells.some(cell => cell.row === row && cell.col === col)
     
@@ -11,13 +11,15 @@ function Grid({ unlockedCells, optimization, onCellToggle }) {
       return { type: 'locked', unlocked: false }
     }
     
-    // Check if this cell has a crop
-    if (melons.some(m => m.row === row && m.col === col)) {
-      return { type: 'melon', unlocked: true }
-    }
-    
-    if (pumpkins.some(p => p.row === row && p.col === col)) {
-      return { type: 'pumpkin', unlocked: true }
+    // Check if this cell has any crop (optimization object has crop arrays)
+    if (optimization) {
+      for (const [key, value] of Object.entries(optimization)) {
+        if (key !== 'mutationSpots' && Array.isArray(value)) {
+          if (value.some(c => c.row === row && c.col === col)) {
+            return { type: key, unlocked: true }
+          }
+        }
+      }
     }
     
     // Check if this is a mutation spot

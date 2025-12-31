@@ -1,13 +1,12 @@
 /**
- * Optimization algorithm for Gloomgourd mutation placement
+ * Optimization algorithm for crop mutation placement
+ * Generic implementation that works with any mutation type
  * 
  * Goal: Maximize the number of valid mutation spots
  * Strategy: Simulated Annealing - iteratively improve by making small random changes
  *           and accepting worse solutions probabilistically to escape local optima
  */
 
-const MELON = 'melon'
-const PUMPKIN = 'pumpkin'
 const EMPTY = null
 
 // Quick optimization parameters - fast results for small layouts
@@ -49,8 +48,9 @@ const isValidCell = (row, col) => {
 
 /**
  * Create initial grid with checkerboard pattern
+ * Works with any crop types based on requirements
  */
-const seedInitialGrid = (unlockedCells, unlockedSet) => {
+const seedInitialGrid = (unlockedCells, unlockedSet, cropTypes) => {
   const grid = {}
   
   // Initialize all cells as empty
@@ -59,13 +59,15 @@ const seedInitialGrid = (unlockedCells, unlockedSet) => {
   })
   
   // Seed with alternating pattern for better starting point
+  // Distribute crop types across the grid
   unlockedCells.forEach(cell => {
     const { row, col } = cell
-    // Create a checkerboard-like pattern
-    if ((row % 4 < 2) !== (col % 4 < 2)) {
-      grid[`${row},${col}`] = MELON
-    } else if ((row % 4 >= 2) !== (col % 4 >= 2)) {
-      grid[`${row},${col}`] = PUMPKIN
+    // Create a pattern that distributes different crop types
+    const patternIndex = (row % 4 < 2) !== (col % 4 < 2) ? 0 : 
+                        (row % 4 >= 2) !== (col % 4 >= 2) ? 1 : -1
+    
+    if (patternIndex >= 0 && patternIndex < cropTypes.length) {
+      grid[`${row},${col}`] = cropTypes[patternIndex]
     }
   })
   
@@ -74,9 +76,9 @@ const seedInitialGrid = (unlockedCells, unlockedSet) => {
 
 /**
  * Count mutation spots for a given grid configuration
- * Optimized with early exit when both crops found
+ * Generic: checks if all required crops are adjacent
  */
-const scoreGrid = (grid, unlockedCells) => {
+const scoreGrid = (grid, unlockedCells, requirements) => {
   let count = 0
   
   for (const cell of unlockedCells) {
@@ -85,22 +87,29 @@ const scoreGrid = (grid, unlockedCells) => {
     // Skip if cell is occupied
     if (grid[key] !== EMPTY) continue
     
-    // Check if it has adjacent melon AND pumpkin
+    // Count adjacent crops
     const adjacent = getAdjacentCells(cell.row, cell.col)
-    let hasMelon = false
-    let hasPumpkin = false
+    const adjacentCrops = {}
     
     for (const adj of adjacent) {
       const adjKey = `${adj.row},${adj.col}`
       const cropType = grid[adjKey]
-      if (cropType === MELON) hasMelon = true
-      else if (cropType === PUMPKIN) hasPumpkin = true
-      
-      // Early exit when both found
-      if (hasMelon && hasPumpkin) {
-        count++
+      if (cropType && cropType !== EMPTY) {
+        adjacentCrops[cropType] = (adjacentCrops[cropType] || 0) + 1
+      }
+    }
+    
+    // Check if all requirements are met
+    let allRequirementsMet = true
+    for (const req of requirements) {
+      if ((adjacentCrops[req.crop] || 0) < req.count) {
+        allRequirementsMet = false
         break
       }
+    }
+    
+    if (allRequirementsMet) {
+      count++
     }
   }
   
@@ -109,11 +118,11 @@ const scoreGrid = (grid, unlockedCells) => {
 
 /**
  * Make a small random change to the grid (tweak a 2x2 area)
- * Optimized with Set lookup
+ * Works with any crop types
  */
-const tweakGrid = (grid, unlockedCells, unlockedSet) => {
+const tweakGrid = (grid, unlockedCells, unlockedSet, cropTypes) => {
   const newGrid = { ...grid }
-  const cropTypes = [EMPTY, MELON, PUMPKIN]
+  const allOptions = [EMPTY, ...cropTypes]
   
   // Pick a random starting point
   const startCell = unlockedCells[Math.floor(Math.random() * unlockedCells.length)]
@@ -133,7 +142,7 @@ const tweakGrid = (grid, unlockedCells, unlockedSet) => {
   // Randomly assign new crop types to these cells
   tweakCells.forEach(cell => {
     const key = `${cell.row},${cell.col}`
-    newGrid[key] = cropTypes[Math.floor(Math.random() * cropTypes.length)]
+    newGrid[key] = allOptions[Math.floor(Math.random() * allOptions.length)]
   })
   
   return newGrid
@@ -148,19 +157,23 @@ const copyGrid = (grid) => {
 
 /**
  * Convert grid to result format
+ * Generic: works with any crop types
  */
-const gridToResult = (grid, unlockedCells) => {
-  const melons = []
-  const pumpkins = []
+const gridToResult = (grid, unlockedCells, requirements) => {
+  const cropPlacements = {}
   const mutationSpots = []
+  
+  // Initialize crop placement arrays
+  requirements.forEach(req => {
+    cropPlacements[req.crop] = []
+  })
   
   // Extract crops
   unlockedCells.forEach(cell => {
     const key = `${cell.row},${cell.col}`
-    if (grid[key] === MELON) {
-      melons.push(cell)
-    } else if (grid[key] === PUMPKIN) {
-      pumpkins.push(cell)
+    const cropType = grid[key]
+    if (cropType && cropType !== EMPTY && cropPlacements[cropType]) {
+      cropPlacements[cropType].push(cell)
     }
   })
   
@@ -170,39 +183,48 @@ const gridToResult = (grid, unlockedCells) => {
     if (grid[key] !== EMPTY) return
     
     const adjacent = getAdjacentCells(cell.row, cell.col)
-    let hasMelon = false
-    let hasPumpkin = false
+    const adjacentCrops = {}
     
     for (const adj of adjacent) {
       const adjKey = `${adj.row},${adj.col}`
-      if (grid[adjKey] === MELON) hasMelon = true
-      if (grid[adjKey] === PUMPKIN) hasPumpkin = true
-      if (hasMelon && hasPumpkin) break
+      const cropType = grid[adjKey]
+      if (cropType && cropType !== EMPTY) {
+        adjacentCrops[cropType] = (adjacentCrops[cropType] || 0) + 1
+      }
     }
     
-    if (hasMelon && hasPumpkin) {
+    // Check if all requirements are met
+    let allRequirementsMet = true
+    for (const req of requirements) {
+      if ((adjacentCrops[req.crop] || 0) < req.count) {
+        allRequirementsMet = false
+        break
+      }
+    }
+    
+    if (allRequirementsMet) {
       mutationSpots.push(cell)
     }
   })
   
-  return { melons, pumpkins, mutationSpots }
+  return { ...cropPlacements, mutationSpots }
 }
 
 /**
  * Simulated Annealing optimization
  */
-const simulatedAnnealing = (unlockedCells, unlockedSet, params) => {
-  let currentGrid = seedInitialGrid(unlockedCells, unlockedSet)
+const simulatedAnnealing = (unlockedCells, unlockedSet, params, cropTypes, requirements) => {
+  let currentGrid = seedInitialGrid(unlockedCells, unlockedSet, cropTypes)
   let bestGrid = copyGrid(currentGrid)
-  let currentScore = scoreGrid(currentGrid, unlockedCells)
+  let currentScore = scoreGrid(currentGrid, unlockedCells, requirements)
   let bestScore = currentScore
   
   let temp = params.INITIAL_TEMP
   
   while (temp > params.FINAL_TEMP) {
     for (let i = 0; i < params.ITERATIONS_PER_TEMP; i++) {
-      const candidateGrid = tweakGrid(currentGrid, unlockedCells, unlockedSet)
-      const candidateScore = scoreGrid(candidateGrid, unlockedCells)
+      const candidateGrid = tweakGrid(currentGrid, unlockedCells, unlockedSet, cropTypes)
+      const candidateScore = scoreGrid(candidateGrid, unlockedCells, requirements)
       
       const delta = candidateScore - currentScore
       
@@ -228,17 +250,21 @@ const simulatedAnnealing = (unlockedCells, unlockedSet, params) => {
 /**
  * Main optimization function with multiple restarts
  * @param {Array} unlockedCells - Array of unlocked cell positions
- * @param {string} selectedCrop - Selected crop type
+ * @param {Object} cropData - The mutation crop data from CROPS
  * @param {string} mode - 'quick' or 'thorough' optimization mode
  */
-export const optimizePlacement = (unlockedCells, selectedCrop, mode = 'thorough') => {
-  if (selectedCrop !== 'gloomgourd') {
-    return { melons: [], pumpkins: [], mutationSpots: [] }
+export const optimizePlacement = (unlockedCells, cropData, mode = 'thorough') => {
+  if (!cropData || !cropData.requirements) {
+    return { mutationSpots: [] }
   }
   
   if (unlockedCells.length < 3) {
-    return { melons: [], pumpkins: [], mutationSpots: [] }
+    return { mutationSpots: [] }
   }
+  
+  // Extract crop types from requirements
+  const cropTypes = cropData.requirements.map(req => req.crop)
+  const requirements = cropData.requirements
   
   // Select parameters based on mode
   const params = mode === 'quick' ? QUICK_PARAMS : THOROUGH_PARAMS
@@ -247,7 +273,7 @@ export const optimizePlacement = (unlockedCells, selectedCrop, mode = 'thorough'
   const unlockedSet = new Set(unlockedCells.map(cell => `${cell.row},${cell.col}`))
   
   // Theoretical maximum: each unlocked cell could be a mutation spot if crops placed optimally
-  // In practice, maximum is around 70-75% of unlocked cells for Gloomgourd
+  // In practice, maximum is around 70-75% of unlocked cells
   const theoreticalMax = Math.floor(unlockedCells.length * 0.75)
   
   let bestGrid = null
@@ -256,7 +282,7 @@ export const optimizePlacement = (unlockedCells, selectedCrop, mode = 'thorough'
   
   // Run multiple times with different random seeds
   for (let restart = 0; restart < params.RESTARTS; restart++) {
-    const result = simulatedAnnealing(unlockedCells, unlockedSet, params)
+    const result = simulatedAnnealing(unlockedCells, unlockedSet, params, cropTypes, requirements)
     
     if (result.score > bestScore) {
       bestScore = result.score
@@ -272,5 +298,5 @@ export const optimizePlacement = (unlockedCells, selectedCrop, mode = 'thorough'
     }
   }
   
-  return gridToResult(bestGrid, unlockedCells)
+  return gridToResult(bestGrid, unlockedCells, requirements)
 }

@@ -67,7 +67,8 @@ function App() {
     setIsOptimizing(true)
     // Use setTimeout to allow UI to update with loading state
     setTimeout(() => {
-      const result = optimizePlacement(unlockedCells, selectedCrop, mode)
+      const cropData = CROPS[selectedCrop]
+      const result = optimizePlacement(unlockedCells, cropData, mode)
       setOptimization(result)
       setIsOptimizing(false)
     }, 50)
@@ -126,10 +127,10 @@ function App() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-sage-800 mb-2">
-            🌱 Greenhouse Garden Optimizer
+            Greenhouse Mutation Optimizer
           </h1>
           <p className="text-sage-600 text-lg">
-            Maximize crop mutations with intelligent placement
+            Optimal placement for maximizing crop mutations in your greenhouse!
           </p>
         </div>
 
