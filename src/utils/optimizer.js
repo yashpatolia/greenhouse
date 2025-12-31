@@ -10,12 +10,12 @@ const MELON = 'melon'
 const PUMPKIN = 'pumpkin'
 const EMPTY = null
 
-// Simulated Annealing parameters
-const INITIAL_TEMP = 5.0
-const FINAL_TEMP = 0.01
-const COOLING_RATE = 0.995
-const ITERATIONS_PER_TEMP = 500
-const RESTARTS = 5 // Multiple restarts for better results
+// Simulated Annealing parameters - optimized for speed while maintaining accuracy
+const INITIAL_TEMP = 3.0
+const FINAL_TEMP = 0.05
+const COOLING_RATE = 0.97
+const ITERATIONS_PER_TEMP = 200
+const RESTARTS = 3 // Reduced from 5 - 3 is sufficient for 10x10 grid
 
 // Get all adjacent cells (orthogonal + diagonal)
 const getAdjacentCells = (row, col) => {
@@ -36,15 +36,10 @@ const isValidCell = (row, col) => {
   return row >= 0 && row < 10 && col >= 0 && col < 10
 }
 
-// Check if a cell is unlocked
-const isUnlocked = (row, col, unlockedCells) => {
-  return unlockedCells.some(cell => cell.row === row && cell.col === col)
-}
-
 /**
  * Create initial grid with checkerboard pattern
  */
-const seedInitialGrid = (unlockedCells) => {
+const seedInitialGrid = (unlockedCells, unlockedSet) => {
   const grid = {}
   
   // Initialize all cells as empty
@@ -68,6 +63,7 @@ const seedInitialGrid = (unlockedCells) => {
 
 /**
  * Count mutation spots for a given grid configuration
+ * Optimized with early exit when both crops found
  */
 const scoreGrid = (grid, unlockedCells) => {
   let count = 0
@@ -85,12 +81,16 @@ const scoreGrid = (grid, unlockedCells) => {
     
     for (const adj of adjacent) {
       const adjKey = `${adj.row},${adj.col}`
-      if (grid[adjKey] === MELON) hasMelon = true
-      if (grid[adjKey] === PUMPKIN) hasPumpkin = true
-      if (hasMelon && hasPumpkin) break
+      const cropType = grid[adjKey]
+      if (cropType === MELON) hasMelon = true
+      else if (cropType === PUMPKIN) hasPumpkin = true
+      
+      // Early exit when both found
+      if (hasMelon && hasPumpkin) {
+        count++
+        break
+      }
     }
-    
-    if (hasMelon && hasPumpkin) count++
   }
   
   return count
@@ -98,8 +98,9 @@ const scoreGrid = (grid, unlockedCells) => {
 
 /**
  * Make a small random change to the grid (tweak a 2x2 area)
+ * Optimized with Set lookup
  */
-const tweakGrid = (grid, unlockedCells) => {
+const tweakGrid = (grid, unlockedCells, unlockedSet) => {
   const newGrid = { ...grid }
   const cropTypes = [EMPTY, MELON, PUMPKIN]
   
@@ -112,7 +113,7 @@ const tweakGrid = (grid, unlockedCells) => {
     for (let dc = 0; dc < 2; dc++) {
       const row = startCell.row + dr
       const col = startCell.col + dc
-      if (isValidCell(row, col) && isUnlocked(row, col, unlockedCells)) {
+      if (isValidCell(row, col) && unlockedSet.has(`${row},${col}`)) {
         tweakCells.push({ row, col })
       }
     }
@@ -179,8 +180,8 @@ const gridToResult = (grid, unlockedCells) => {
 /**
  * Simulated Annealing optimization
  */
-const simulatedAnnealing = (unlockedCells) => {
-  let currentGrid = seedInitialGrid(unlockedCells)
+const simulatedAnnealing = (unlockedCells, unlockedSet) => {
+  let currentGrid = seedInitialGrid(unlockedCells, unlockedSet)
   let bestGrid = copyGrid(currentGrid)
   let currentScore = scoreGrid(currentGrid, unlockedCells)
   let bestScore = currentScore
@@ -189,7 +190,7 @@ const simulatedAnnealing = (unlockedCells) => {
   
   while (temp > FINAL_TEMP) {
     for (let i = 0; i < ITERATIONS_PER_TEMP; i++) {
-      const candidateGrid = tweakGrid(currentGrid, unlockedCells)
+      const candidateGrid = tweakGrid(currentGrid, unlockedCells, unlockedSet)
       const candidateScore = scoreGrid(candidateGrid, unlockedCells)
       
       const delta = candidateScore - currentScore
@@ -225,12 +226,15 @@ export const optimizePlacement = (unlockedCells, selectedCrop) => {
     return { melons: [], pumpkins: [], mutationSpots: [] }
   }
   
+  // Create Set for O(1) lookups
+  const unlockedSet = new Set(unlockedCells.map(cell => `${cell.row},${cell.col}`))
+  
   let bestGrid = null
   let bestScore = -1
   
   // Run multiple times with different random seeds
   for (let restart = 0; restart < RESTARTS; restart++) {
-    const result = simulatedAnnealing(unlockedCells)
+    const result = simulatedAnnealing(unlockedCells, unlockedSet)
     
     if (result.score > bestScore) {
       bestScore = result.score
