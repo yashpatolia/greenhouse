@@ -18,6 +18,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Folders
+.vscode
+.specify
+.github
+
 # Environment variables
 .env
 .env*.local
