@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-sage-50 text-sage-900;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-earth-600 hover:bg-earth-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-sage-200 hover:bg-sage-300 text-sage-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+}
