@@ -63,11 +63,11 @@ function App() {
     }
   }, [unlockedCells, cookieConsent])
 
-  const handleOptimize = async () => {
+  const handleOptimize = async (mode = 'thorough') => {
     setIsOptimizing(true)
     // Use setTimeout to allow UI to update with loading state
     setTimeout(() => {
-      const result = optimizePlacement(unlockedCells, selectedCrop)
+      const result = optimizePlacement(unlockedCells, selectedCrop, mode)
       setOptimization(result)
       setIsOptimizing(false)
     }, 50)
@@ -180,6 +180,7 @@ function App() {
               onOptimize={handleOptimize}
               isOptimizing={isOptimizing}
               hasOptimization={optimization !== null}
+              unlockedCount={unlockedCells.length}
             />
           </div>
         </div>

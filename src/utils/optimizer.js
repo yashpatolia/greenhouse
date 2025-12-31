@@ -10,12 +10,23 @@ const MELON = 'melon'
 const PUMPKIN = 'pumpkin'
 const EMPTY = null
 
-// Simulated Annealing parameters - optimized for speed while maintaining accuracy
-const INITIAL_TEMP = 3.0
-const FINAL_TEMP = 0.05
-const COOLING_RATE = 0.97
-const ITERATIONS_PER_TEMP = 200
-const RESTARTS = 3 // Reduced from 5 - 3 is sufficient for 10x10 grid
+// Quick optimization parameters - fast results for small layouts
+const QUICK_PARAMS = {
+  INITIAL_TEMP: 3.0,
+  FINAL_TEMP: 0.05,
+  COOLING_RATE: 0.96,
+  ITERATIONS_PER_TEMP: 150,
+  RESTARTS: 5
+}
+
+// Thorough optimization parameters - best results for large layouts
+const THOROUGH_PARAMS = {
+  INITIAL_TEMP: 4.0,
+  FINAL_TEMP: 0.02,
+  COOLING_RATE: 0.98,
+  ITERATIONS_PER_TEMP: 250,
+  RESTARTS: 10
+}
 
 // Get all adjacent cells (orthogonal + diagonal)
 const getAdjacentCells = (row, col) => {
@@ -180,16 +191,16 @@ const gridToResult = (grid, unlockedCells) => {
 /**
  * Simulated Annealing optimization
  */
-const simulatedAnnealing = (unlockedCells, unlockedSet) => {
+const simulatedAnnealing = (unlockedCells, unlockedSet, params) => {
   let currentGrid = seedInitialGrid(unlockedCells, unlockedSet)
   let bestGrid = copyGrid(currentGrid)
   let currentScore = scoreGrid(currentGrid, unlockedCells)
   let bestScore = currentScore
   
-  let temp = INITIAL_TEMP
+  let temp = params.INITIAL_TEMP
   
-  while (temp > FINAL_TEMP) {
-    for (let i = 0; i < ITERATIONS_PER_TEMP; i++) {
+  while (temp > params.FINAL_TEMP) {
+    for (let i = 0; i < params.ITERATIONS_PER_TEMP; i++) {
       const candidateGrid = tweakGrid(currentGrid, unlockedCells, unlockedSet)
       const candidateScore = scoreGrid(candidateGrid, unlockedCells)
       
@@ -208,7 +219,7 @@ const simulatedAnnealing = (unlockedCells, unlockedSet) => {
       }
     }
     
-    temp *= COOLING_RATE
+    temp *= params.COOLING_RATE
   }
   
   return { grid: bestGrid, score: bestScore }
@@ -216,8 +227,11 @@ const simulatedAnnealing = (unlockedCells, unlockedSet) => {
 
 /**
  * Main optimization function with multiple restarts
+ * @param {Array} unlockedCells - Array of unlocked cell positions
+ * @param {string} selectedCrop - Selected crop type
+ * @param {string} mode - 'quick' or 'thorough' optimization mode
  */
-export const optimizePlacement = (unlockedCells, selectedCrop) => {
+export const optimizePlacement = (unlockedCells, selectedCrop, mode = 'thorough') => {
   if (selectedCrop !== 'gloomgourd') {
     return { melons: [], pumpkins: [], mutationSpots: [] }
   }
@@ -226,19 +240,35 @@ export const optimizePlacement = (unlockedCells, selectedCrop) => {
     return { melons: [], pumpkins: [], mutationSpots: [] }
   }
   
+  // Select parameters based on mode
+  const params = mode === 'quick' ? QUICK_PARAMS : THOROUGH_PARAMS
+  
   // Create Set for O(1) lookups
   const unlockedSet = new Set(unlockedCells.map(cell => `${cell.row},${cell.col}`))
   
+  // Theoretical maximum: each unlocked cell could be a mutation spot if crops placed optimally
+  // In practice, maximum is around 70-75% of unlocked cells for Gloomgourd
+  const theoreticalMax = Math.floor(unlockedCells.length * 0.75)
+  
   let bestGrid = null
   let bestScore = -1
+  let consecutiveSameScore = 0
   
   // Run multiple times with different random seeds
-  for (let restart = 0; restart < RESTARTS; restart++) {
-    const result = simulatedAnnealing(unlockedCells, unlockedSet)
+  for (let restart = 0; restart < params.RESTARTS; restart++) {
+    const result = simulatedAnnealing(unlockedCells, unlockedSet, params)
     
     if (result.score > bestScore) {
       bestScore = result.score
       bestGrid = result.grid
+      consecutiveSameScore = 0
+    } else if (result.score === bestScore) {
+      consecutiveSameScore++
+    }
+    
+    // Early stopping: if we've found theoretical max or same score 3 times in a row
+    if (bestScore >= theoreticalMax || consecutiveSameScore >= 3) {
+      break
     }
   }
   
