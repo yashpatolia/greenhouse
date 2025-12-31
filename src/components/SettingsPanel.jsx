@@ -1,4 +1,8 @@
-function SettingsPanel({ onClose, onClearData, cookieConsent }) {
+function SettingsPanel({ onClose, onClearData, onToggleCookies, cookieConsent }) {
+  const handleToggle = () => {
+    onToggleCookies(!cookieConsent)
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
@@ -14,27 +18,43 @@ function SettingsPanel({ onClose, onClearData, cookieConsent }) {
         </div>
         
         <div className="space-y-6">
-          {/* Cookie Status */}
+          {/* Cookie Toggle */}
           <div>
-            <h3 className="font-semibold text-sage-700 mb-2">Cookie Status</h3>
+            <h3 className="font-semibold text-sage-700 mb-2">Cookie Preferences</h3>
             <div className="bg-sage-50 p-4 rounded-lg">
-              <p className="text-sm text-sage-600">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-sage-700">Enable Cookies</span>
+                <button
+                  onClick={handleToggle}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    cookieConsent ? 'bg-green-600' : 'bg-gray-300'
+                  }`}
+                  disabled={cookieConsent === null}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      cookieConsent ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-sage-600">
                 {cookieConsent === true && (
                   <span className="flex items-center gap-2">
                     <span className="text-green-600">✓</span>
-                    Cookies are enabled. Your grid state is being saved.
+                    Your grid state is being saved.
                   </span>
                 )}
                 {cookieConsent === false && (
                   <span className="flex items-center gap-2">
                     <span className="text-amber-600">⚠</span>
-                    Cookies are disabled. Your grid state will reset when you close the browser.
+                    Your grid state will reset when you close the browser.
                   </span>
                 )}
                 {cookieConsent === null && (
                   <span className="flex items-center gap-2">
                     <span className="text-sage-600">ℹ</span>
-                    Cookie preference not set yet.
+                    Please accept or decline cookies first.
                   </span>
                 )}
               </p>

@@ -37,9 +37,12 @@ function App() {
   // Load saved state from cookies on mount
   useEffect(() => {
     const consent = Cookies.get('greenhouse_consent')
-    setCookieConsent(consent === 'true')
     
-    if (consent === 'true') {
+    if (consent === undefined) {
+      // No preference set - show popup by setting to null
+      setCookieConsent(null)
+    } else if (consent === 'true') {
+      setCookieConsent(true)
       const savedUnlocked = Cookies.get('greenhouse_unlocked')
       if (savedUnlocked) {
         try {
@@ -48,6 +51,8 @@ function App() {
           console.error('Failed to parse saved grid state:', e)
         }
       }
+    } else {
+      setCookieConsent(false)
     }
   }, [])
 
@@ -96,6 +101,18 @@ function App() {
     setUnlockedCells(createCrossPattern())
     setOptimization(null)
     setShowSettings(false)
+  }
+
+  const handleToggleCookies = (enabled) => {
+    if (enabled) {
+      setCookieConsent(true)
+      Cookies.set('greenhouse_consent', 'true', { expires: 365 })
+      Cookies.set('greenhouse_unlocked', JSON.stringify(unlockedCells), { expires: 365 })
+    } else {
+      setCookieConsent(false)
+      Cookies.set('greenhouse_consent', 'false', { expires: 365 })
+      Cookies.remove('greenhouse_unlocked')
+    }
   }
 
   const handleReset = () => {
@@ -172,6 +189,7 @@ function App() {
           <SettingsPanel
             onClose={() => setShowSettings(false)}
             onClearData={handleClearData}
+            onToggleCookies={handleToggleCookies}
             cookieConsent={cookieConsent}
           />
         )}
